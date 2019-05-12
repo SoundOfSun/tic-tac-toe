@@ -27,40 +27,42 @@ function Square(props) {
 }
 
 class Board extends React.Component {
-  constructor(props) {
-    super(props);
-    // Let's set the first move to X by default
-    // Then each time a player moves, the boolean xIsNext will be flipped
-    this.state = {
-      squares: Array(9).fill(null),
-      xIsNext: true,
-    };
-  }
+  // Board component receive squares and onClick props from the Game component
+  // constructor(props) {
+  //   super(props);
+  //   // Let's set the first move to X by default
+  //   // Then each time a player moves, the boolean xIsNext will be flipped
+  //   this.state = {
+  //     squares: Array(9).fill(null),
+  //     xIsNext: true,
+  //   };
+  // }
 
-  handleClick(i) {
-    // we call .slice() to create a copy of the squares Array to modify instead of modifying the existing array
-    // --> this is immutability: data change without mutation
-    const squares = this.state.squares.slice();
+  // This is now handled by Game
+  // handleClick(i) {
+  //   // we call .slice() to create a copy of the squares Array to modify instead of modifying the existing array
+  //   // --> this is immutability: data change without mutation
+  //   const squares = this.state.squares.slice();
 
-    // ignore a click if game was one or square already filled
-    if (calculateWinner(squares) || squares[i]) {
-      return;
-    }
+  //   // ignore a click if game was one or square already filled
+  //   if (calculateWinner(squares) || squares[i]) {
+  //     return;
+  //   }
 
-    // This is where we flip xIsNext at each move
-    squares[i] = this.state.xIsNext ? 'X' : 'O';
-    this.setState({
-      squares: squares,
-      xIsNext: !this.state.xIsNext,
-    });
-  }
+  //   // This is where we flip xIsNext at each move
+  //   squares[i] = this.state.xIsNext ? 'X' : 'O';
+  //   this.setState({
+  //     squares: squares,
+  //     xIsNext: !this.state.xIsNext,
+  //   });
+  // }
 
   renderSquare(i) {
     // wrap the returned element in parentheses so that JS doesn't insert a semicolon after "return"
     return ( 
       <Square 
-        value={this.state.squares[i]} 
-        onClick={() => this.handleClick(i)}
+        value={this.props.squares[i]} 
+        onClick={() => this.props.onClick(i)}
       />
       // The onClick prop for sqaure is specified by the Board
     );
@@ -70,17 +72,17 @@ class Board extends React.Component {
     // change "status" text so that it displays which player has the next turn
     // const status = 'Next player: ' + (this.state.xIsNext ? 'X' : 'O');
 
-    const winner = calculateWinner(this.state.squares);
-    let status;
-    if (winner) {
-      status = 'Winner: ' + winner
-    } else {
-      status = 'Next player: ' + (this.state.xIsNext ? 'X' : 'O');
-    }
+    // This is now handled by Game
+    // const winner = calculateWinner(this.state.squares);
+    // let status;
+    // if (winner) {
+    //   status = 'Winner: ' + winner
+    // } else {
+    //   status = 'Next player: ' + (this.state.xIsNext ? 'X' : 'O');
+    // }
 
     return (
       <div>
-        <div className="status">{status}</div>
         <div className="board-row">
           {this.renderSquare(0)}
           {this.renderSquare(1)}
@@ -102,15 +104,83 @@ class Board extends React.Component {
 }
 
 class Game extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      history: [{
+        squares: Array(9).fill(null),
+      }],
+      // add stepNumber to the Game component’s state to indicate which step we’re currently viewing
+      stepNumber: 0,
+      xIsNext: true,
+    };
+  }
+
+  handleClick(i) {
+    // we concatenate new history entries onto history
+    // ensures that if we “go back in time” and then make a new move from that point, we throw away all the “future” history that would now become incorrect
+    const history = this.state.history.slice(0, this.state.stepNumber + 1);
+    const current = history[history.length - 1];
+    const squares = current.squares.slice();
+
+    if (calculateWinner(squares) || squares[i]) {
+      return;
+    }
+    squares[i] = this.state.xIsNext ? 'X' : 'O';
+
+    this.setState({
+      // the concat() method doesn’t mutate the original array
+      history: history.concat([{
+        squares: squares,
+      }]),
+      stepNumber: history.length,
+      xIsNext: !this.state.xIsNext,
+    });
+  }
+
+  jumpTo(step) {
+    this.setState({
+      stepNumber: step,
+      xIsNext: (step % 2) === 0,
+    });
+  }
+
   render() {
+    const history = this.state.history;
+    // rendering the currently selected move according to stepNumber
+    const current = history[this.state.stepNumber];
+    // const current = history[history.length - 1];
+    const winner = calculateWinner(current.squares);
+
+    // Map over history
+    const moves = history.map((step, move) => {
+      const desc = move ? 'Go to move #' + move : 'Go to game start'
+      return (
+        // We can use 'move' as a unique key because moves  are never re-ordered, deleted, or inserted in the middle of the array of moves
+        <li key={move}>
+          <button onClick={() => this.jumpTo(move)}>{desc}</button>
+        </li>
+      )
+    })
+
+    let status;
+    if (winner) {
+      status = 'Winner: ' + winner;
+    } else {
+      status = 'Next player: ' + (this.state.xIsNext ? 'X' : 'O');
+    }
+
     return (
       <div className="game">
         <div className="game-board">
-          <Board />
+          <Board
+            squares={current.squares}
+            onClick={(i) => this.handleClick(i)} 
+          />
         </div>
         <div className="game-info">
-          <div>{/* status */}</div>
-          <ol>{/* TODO */}</ol>
+          <div>{status}</div>
+          <ol>{moves}</ol>
         </div>
       </div>
     );
